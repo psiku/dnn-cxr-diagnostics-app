@@ -1,4 +1,4 @@
-from api import health_check
+from app.api import health_check
 from fastapi import FastAPI
 
 app = FastAPI(
