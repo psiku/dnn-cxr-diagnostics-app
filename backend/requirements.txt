@@ -1,3 +1,9 @@
 fastapi
 uvicorn[standard]
 pydantic
+scipy
+matplotlib
+torch-geometric
+opencv-python
+torchvision
+torch
