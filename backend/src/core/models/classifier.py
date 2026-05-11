@@ -191,6 +191,9 @@ class ChestXRayClassifier(nn.Module):
     ):
         super().__init__()
 
+        if num_classes <= 0:
+            raise ValueError("num_classes must be greater than 0")
+
         if backbone_trainable_layers is None:
             backbone_trainable_layers = []
 
