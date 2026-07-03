@@ -91,3 +91,9 @@ def resize_to_original_size(
     ).squeeze(0).squeeze(0).numpy()
 
     return resized_image, resized_heatmap
+
+
+def get_image_suffix(filename: str | None) -> str:
+    """Get the file suffix (extension) of an image file."""
+    suffix = Path(filename).suffix.lower() if filename else ""
+    return suffix if suffix in {".png", ".jpg", ".jpeg", ".webp", ".gif"} else ".png"

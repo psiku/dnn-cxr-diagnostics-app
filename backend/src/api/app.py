@@ -2,11 +2,20 @@
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
+
 from fastapi import FastAPI
-from src.api.routes import health, predictions
+
+from src.api.routes import annotations, health, predictions, pathologies
+from src.core.annotations_config import annotations_data_root
 from src.core.config import load_config
+from src.core.pathologies import PATHOLOGIES
 from src.core.models import load_model, load_thresholds, ChestXRayPredictor
+from src.repositories import DescriptionRepository, LabelingRepository
 from src.services import XRayTriageService
+from src.services.description_pdf import DescriptionPdfBuilder
+from src.services.description_service import DescriptionService
+from src.services.labeling_service import LabelingService
 
 
 @asynccontextmanager
@@ -25,16 +34,26 @@ async def lifespan(app: FastAPI):
     model = load_model(config, device=device)
     thresholds = load_thresholds(
         config.thresholds_path,
-        pathologies=XRayTriageService.PATHOLOGIES,
+        pathologies=list(PATHOLOGIES),
     )
 
     predictor = ChestXRayPredictor(model, device=device)
     triage_service = XRayTriageService(predictor, thresholds=thresholds)
 
+    annotations_root: Path = annotations_data_root()
+    annotations_root.mkdir(parents=True, exist_ok=True)
+    description_repository = DescriptionRepository(annotations_root)
+    labeling_repository = LabelingRepository(annotations_root)
+    description_service = DescriptionService(description_repository, DescriptionPdfBuilder())
+    labeling_service = LabelingService(labeling_repository)
+
     app.state.model = model
     app.state.predictor = predictor
     app.state.triage_service = triage_service
     app.state.device = device
+    app.state.description_service = description_service
+    app.state.labeling_service = labeling_service
+    app.state.annotations_root = annotations_root
 
     print(f"Model loaded on {device}")
     if thresholds is not None:
@@ -51,6 +70,8 @@ async def lifespan(app: FastAPI):
     app.state.model = None
     app.state.predictor = None
     app.state.triage_service = None
+    app.state.description_service = None
+    app.state.labeling_service = None
 
 
 app = FastAPI(
@@ -60,12 +81,16 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+_default_cors = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8080,http://127.0.0.1:8080"
+_cors_origins = [
+    origin.strip()
+    for origin in os.environ.get("CORS_ORIGINS", _default_cors).split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -73,7 +98,8 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(predictions.router)
-
+app.include_router(annotations.router)
+app.include_router(pathologies.router)
 
 @app.get("/")
 async def root():

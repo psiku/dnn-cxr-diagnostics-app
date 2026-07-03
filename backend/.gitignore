@@ -1,0 +1,19 @@
+# Local annotations data and generated metadata
+data/annotations/*
+config/*
+
+# Python environments and caches
+.pytest_cache/
+.venv/
+venv/
+ENV/
+env/
+
+# Model weights and other large binary artifacts
+models/*.ckpt
+models/*.pt
+models/*.onnx
+
+# Misc local files
+.ipynb_checkpoints/
+*.log

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import yaml
 from pydantic import BaseModel
 
@@ -23,7 +25,20 @@ class Config(BaseModel):
 
 
 def load_config(config_path: str) -> Config:
-    """Load configuration from YAML file."""
-    with open(config_path, "r") as f:
+    """Load configuration from YAML; resolve relative paths from backend root."""
+    config_file = Path(config_path).resolve()
+    config_dir = config_file.parent
+    backend_root = config_dir.parent if config_dir.name == "config" else config_dir
+
+    with open(config_file, encoding="utf-8") as f:
         config_dict = yaml.safe_load(f)
+
+    for key in ("model_path", "thresholds_path"):
+        raw = config_dict.get(key)
+        if not raw:
+            continue
+        path = Path(raw)
+        if not path.is_absolute():
+            config_dict[key] = str((backend_root / path).resolve())
+
     return Config(**config_dict)

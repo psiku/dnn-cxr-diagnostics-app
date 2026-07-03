@@ -1,5 +1,8 @@
-"""Health check route."""
+"""Health and metadata routes."""
 from fastapi import APIRouter, status
+
+from src.api.schemas import PathologiesResponse
+from src.core.pathologies import PATHOLOGIES
 
 router = APIRouter(tags=["Health"])
 

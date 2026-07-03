@@ -2,28 +2,14 @@
 from typing import Any
 import numpy as np
 from src.core.models.predictor import ChestXRayPredictor
+from src.core.pathologies import PATHOLOGIES
 
 
 class XRayTriageService:
     """Business logic for X-ray triage and reporting."""
 
-    # Pathology names in the order produced by the trained model.
-    PATHOLOGIES = [
-        "Infiltration",
-        "Effusion",
-        "Atelectasis",
-        "Nodule",
-        "Mass",
-        "Pneumothorax",
-        "Consolidation",
-        "Pleural_Thickening",
-        "Cardiomegaly",
-        "Emphysema",
-        "Edema",
-        "Fibrosis",
-        "Pneumonia",
-        "Hernia",
-    ]
+    # Pathology names in the order produced by the trained model (config/pathologies.json).
+    PATHOLOGIES = PATHOLOGIES
 
     # Fallback threshold used when the checkpoint does not provide per-class values
     DEFAULT_THRESHOLD = 0.5

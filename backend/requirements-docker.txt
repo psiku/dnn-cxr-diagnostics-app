@@ -3,11 +3,7 @@ uvicorn[standard]
 python-multipart
 pydantic
 PyYAML
-opencv-python-headless
 matplotlib
-torchvision
-torch
+opencv-python-headless
 fpdf2
 Pillow
-pytest
-httpx2

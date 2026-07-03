@@ -20,3 +20,9 @@ class TriageResponse(BaseModel):
     base_64_heatmap: str
     triage_level: str  # "critical", "high", "medium", "low"
     high_risk_findings: list[PathologyPrediction]
+
+
+class PathologiesResponse(BaseModel):
+    """Ordered pathology names for UI dropdowns and labeling."""
+    pathologies: list[str]
+

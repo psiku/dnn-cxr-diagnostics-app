@@ -1,10 +1,26 @@
-version: "3.8"
-
 services:
   backend:
     build: ./backend
-    ports:
-      - "8000:8000"
+    environment:
+      USE_CUDA: "false"
+      ANNOTATIONS_DATA_DIR: /app/data/annotations
+      CORS_ORIGINS: "http://localhost:8080,http://127.0.0.1:8080"
     volumes:
-      - ./backend:/app
-    restart: always
+      # Zapis na dysku Windows — ten sam folder co przy lokalnym backendzie
+      - ./backend/data/annotations:/app/data/annotations
+      - ./backend/models:/app/models:ro
+      - ./backend/config:/app/config:ro
+    expose:
+      - "8000"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE: /api
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
