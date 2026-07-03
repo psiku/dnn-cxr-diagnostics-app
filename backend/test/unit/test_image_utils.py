@@ -8,6 +8,7 @@ from src.core.utils.image import (
     decode_base64_to_image,
     encode_image_to_base64,
     encode_array_to_base64,
+    get_image_suffix,
     get_image_transform,
     convert_base64_to_tensor,
     resize_to_original_size,
@@ -100,3 +101,20 @@ def test_resize_to_original_size():
     # Assert
     assert resized_image.shape == (3, 400, 400)
     assert resized_heatmap.shape == (400, 400)
+
+
+def test_image_suffix_supported():
+    assert get_image_suffix("image.png") == ".png"
+    assert get_image_suffix("image.jpg") == ".jpg"
+    assert get_image_suffix("image.jpeg") == ".jpeg"
+    assert get_image_suffix("image.webp") == ".webp"
+    assert get_image_suffix("image.gif") == ".gif"
+
+def test_image_suffix_unsupported():
+    assert get_image_suffix("image.bmp") == ".png"
+    assert get_image_suffix("image.tiff") == ".png"
+    assert get_image_suffix("image") == ".png"
+
+def test_image_suffix_none():
+    assert get_image_suffix(None) == ".png"
+
