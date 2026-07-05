@@ -15,12 +15,15 @@ def test_bounding_box_model_init():
     assert bounding_box.height == 10
 
 
-@pytest.mark.parametrize("label, x, y, width, height", [
-    ("test", -10, 10, 10, 10),
-    ("test", 10, -10, 10, 10),
-    ("test", 10, 10, -10, 10),
-    ("test", 10, 10, 10, -10),
-])
+@pytest.mark.parametrize(
+    "label, x, y, width, height",
+    [
+        ("test", -10, 10, 10, 10),
+        ("test", 10, -10, 10, 10),
+        ("test", 10, 10, -10, 10),
+        ("test", 10, 10, 10, -10),
+    ],
+)
 def test_bounding_box_model_negative_coordinates(label, x, y, width, height):
     """Test the initialization of the BoundingBox model with negative coordinates."""
     with pytest.raises(ValueError):
@@ -44,6 +47,7 @@ def test_bounding_box_model_white_characters_label():
     with pytest.raises(ValueError):
         BoundingBox(label="\t ", x=10, y=10, width=10, height=10)
 
+
 def test_bounding_box_label_is_none():
     """Test the initialization of the BoundingBox model with a None label."""
     with pytest.raises(ValueError):
@@ -55,20 +59,24 @@ def test_bounding_box_model_x_is_negative():
     with pytest.raises(ValueError):
         BoundingBox(label="test", x=-1, y=10, width=10, height=10)
 
+
 def test_bounding_box_model_y_is_negative():
     """Test the initialization of the BoundingBox model with a negative y coordinate."""
     with pytest.raises(ValueError):
         BoundingBox(label="test", x=10, y=-1, width=10, height=10)
+
 
 def test_bounding_box_model_width_is_negative():
     """Test the initialization of the BoundingBox model with a negative width."""
     with pytest.raises(ValueError):
         BoundingBox(label="test", x=10, y=10, width=-1, height=10)
 
+
 def test_bounding_box_model_height_is_negative():
     """Test the initialization of the BoundingBox model with a negative height."""
     with pytest.raises(ValueError):
         BoundingBox(label="test", x=10, y=10, width=10, height=-1)
+
 
 def test_bounding_box_model_to_coordinates():
     """Test the conversion of the BoundingBox model to coordinates."""
@@ -80,6 +88,7 @@ def test_bounding_box_model_to_coordinates():
 
     # Assert
     assert coordinates == (5, 5, 15, 15)
+
 
 def test_bounding_box_model_to_coordinates_with_odd_dimensions():
     """Test the conversion of the BoundingBox model to coordinates with odd dimensions."""

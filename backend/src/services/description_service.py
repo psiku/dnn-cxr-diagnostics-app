@@ -1,4 +1,5 @@
 """Application service: save descriptions with files and export PDF."""
+
 from __future__ import annotations
 
 import uuid
@@ -31,7 +32,9 @@ class DescriptionService:
         )
         return description.image_id
 
-    def export_pdf(self, image_id: uuid.UUID, *, figures: PdfFiguresMode = "both") -> bytes:
+    def export_pdf(
+        self, image_id: uuid.UUID, *, figures: PdfFiguresMode = "both"
+    ) -> bytes:
         manifest = self._repository.load_manifest(image_id)
         paths = self._repository.attachment_paths(image_id)
         return self._pdf_builder.build(manifest, paths, figures=figures)

@@ -1,4 +1,5 @@
 """Endpoints for clinical descriptions (with PDF export) and image labeling."""
+
 from __future__ import annotations
 
 import uuid
@@ -53,8 +54,12 @@ async def create_description(
     study_name: str = Form("", description="Study title"),
     projection: str | None = Form(None, description="AP, PA, or L"),
     study_date: str | None = Form(None, description="YYYY-MM-DD"),
-    heatmap_overlay_alpha: float = Form(0.35, description="0–1 blend for PDF composite"),
-    image_id: str | None = Form(None, description="Optional UUID; generated if omitted"),
+    heatmap_overlay_alpha: float = Form(
+        0.35, description="0–1 blend for PDF composite"
+    ),
+    image_id: str | None = Form(
+        None, description="Optional UUID; generated if omitted"
+    ),
     original: UploadFile | None = File(None),
     heatmap: UploadFile | None = File(None),
 ):
@@ -86,7 +91,11 @@ async def create_description(
     )
 
     try:
-        desc = Description(image_id=uid, **kwargs) if uid is not None else Description(**kwargs)
+        desc = (
+            Description(image_id=uid, **kwargs)
+            if uid is not None
+            else Description(**kwargs)
+        )
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -132,7 +141,9 @@ async def download_description_pdf(
     try:
         pdf_bytes = description_service.export_pdf(image_id, figures=figures)
     except FileNotFoundError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Description not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Description not found"
+        )
     filename = f"description-{image_id}.pdf"
     return Response(
         content=pdf_bytes,

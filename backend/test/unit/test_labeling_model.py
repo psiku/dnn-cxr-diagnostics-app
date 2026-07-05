@@ -11,7 +11,9 @@ def test_labeled_image_model_init():
     bounding_box = BoundingBox(label="test", x=10, y=10, width=10, height=10)
     image_id = uuid.uuid4()
     timestamp = datetime.now()
-    labeled_image = LabeledImage(image_id=image_id, bounding_boxes=[bounding_box], timestamp=timestamp)
+    labeled_image = LabeledImage(
+        image_id=image_id, bounding_boxes=[bounding_box], timestamp=timestamp
+    )
 
     # Assert
     assert labeled_image.image_id == image_id
@@ -31,4 +33,8 @@ def test_labeled_image_model_invalid_image_id(image_id):
     """Test the initialization of the LabeledImage model with an invalid image id."""
 
     with pytest.raises(ValueError):
-        LabeledImage(image_id=image_id, bounding_boxes=[BoundingBox(label="test", x=10, y=10, width=10, height=10)], timestamp=datetime.now())
+        LabeledImage(
+            image_id=image_id,
+            bounding_boxes=[BoundingBox(label="test", x=10, y=10, width=10, height=10)],
+            timestamp=datetime.now(),
+        )

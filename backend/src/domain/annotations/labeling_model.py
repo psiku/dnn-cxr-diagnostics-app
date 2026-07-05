@@ -1,4 +1,5 @@
 """Labeling model."""
+
 import uuid
 from datetime import datetime
 
@@ -9,7 +10,9 @@ from .bounding_box_model import BoundingBox
 
 class LabeledImage(BaseModel):
     image_id: uuid.UUID = Field(..., description="The id of the image.")
-    bounding_boxes: list[BoundingBox] = Field(..., description="The bounding boxes of the image.")
+    bounding_boxes: list[BoundingBox] = Field(
+        ..., description="The bounding boxes of the image."
+    )
     timestamp: datetime = Field(..., description="The timestamp of the image.")
 
     @field_validator("image_id", mode="before")

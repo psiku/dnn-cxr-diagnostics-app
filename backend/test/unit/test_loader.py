@@ -49,15 +49,15 @@ def test_load_model(tmp_path):
         "use_transition": True,
         "pooling": "avg",
         "lse_r": 5.0,
-        "dropout": 0.5
+        "dropout": 0.5,
     }
 
     dummy_model = ChestXRayClassifier(**model_params)
     torch.save(dummy_model.state_dict(), model_path)
 
     config_data = {
-        "model_path": str(model_path).replace('\\', '/'),
-        "model_cfg": model_params
+        "model_path": str(model_path).replace("\\", "/"),
+        "model_cfg": model_params,
     }
 
     with open(config_file, "w") as f:
@@ -102,9 +102,7 @@ def test_load_thresholds_json_dict_reorders_by_pathologies(tmp_path):
     thresholds_path = tmp_path / "thresholds.json"
     _write_json_dict(thresholds_path)
     shuffled_order = ["C", "A", "E", "B", "D"]
-    expected = [
-        EXPECTED_THRESHOLDS[PATHOLOGIES.index(name)] for name in shuffled_order
-    ]
+    expected = [EXPECTED_THRESHOLDS[PATHOLOGIES.index(name)] for name in shuffled_order]
 
     # Action
     loaded = load_thresholds(str(thresholds_path), pathologies=shuffled_order)

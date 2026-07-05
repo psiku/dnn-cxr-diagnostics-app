@@ -1,4 +1,5 @@
 """Bounding box model."""
+
 from pydantic import Field, BaseModel
 from pydantic import field_validator
 

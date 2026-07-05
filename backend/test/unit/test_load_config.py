@@ -20,7 +20,7 @@ def test_load_config(tmp_path):
             "use_transition": True,
             "pooling": "avg",
             "lse_r": 5.0,
-            "dropout": 0.5
+            "dropout": 0.5,
         },
         "thresholds_path": "path/to/thresholds.json",
     }
@@ -44,4 +44,6 @@ def test_load_config(tmp_path):
     assert config.model_cfg.pooling == "avg"
     assert config.model_cfg.lse_r == 5.0
     assert config.model_cfg.dropout == 0.5
-    assert config.thresholds_path == str((tmp_path / "path/to/thresholds.json").resolve())
+    assert config.thresholds_path == str(
+        (tmp_path / "path/to/thresholds.json").resolve()
+    )

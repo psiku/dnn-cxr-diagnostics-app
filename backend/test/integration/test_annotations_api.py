@@ -42,13 +42,17 @@ def client(annotations_services):
     app.dependency_overrides.clear()
 
 
-def _png_bytes(color: tuple[int, int, int] = (123, 45, 67), size: tuple[int, int] = (8, 8)) -> bytes:
+def _png_bytes(
+    color: tuple[int, int, int] = (123, 45, 67), size: tuple[int, int] = (8, 8)
+) -> bytes:
     buffer = BytesIO()
     Image.new("RGB", size, color=color).save(buffer, format="PNG")
     return buffer.getvalue()
 
 
-def test_create_description_saves_description_and_attachments(client, annotations_services):
+def test_create_description_saves_description_and_attachments(
+    client, annotations_services
+):
     _, _, root = annotations_services
 
     response = client.post(

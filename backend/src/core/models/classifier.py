@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torchvision.models import(
+from torchvision.models import (
     resnet18,
     resnet50,
     resnet101,
@@ -54,31 +54,91 @@ def set_nested_attr(obj, path, value):
 
 class TorchvisionBackbone(nn.Module):
     CONFIGS = {
-        "resnet18":  (resnet18,  ResNet18_Weights.DEFAULT,  ["conv1"], None),
-        "resnet50":  (resnet50,  ResNet50_Weights.DEFAULT,  ["conv1"], None),
+        "resnet18": (resnet18, ResNet18_Weights.DEFAULT, ["conv1"], None),
+        "resnet50": (resnet50, ResNet50_Weights.DEFAULT, ["conv1"], None),
         "resnet101": (resnet101, ResNet101_Weights.DEFAULT, ["conv1"], None),
         "resnet152": (resnet152, ResNet152_Weights.DEFAULT, ["conv1"], None),
-
-        "densenet121": (densenet121, DenseNet121_Weights.DEFAULT, ["features", "conv0"], ["features"]),
-        "densenet161": (densenet161, DenseNet161_Weights.DEFAULT, ["features", "conv0"], ["features"]),
-        "densenet169": (densenet169, DenseNet169_Weights.DEFAULT, ["features", "conv0"], ["features"]),
-        "densenet201": (densenet201, DenseNet201_Weights.DEFAULT, ["features", "conv0"], ["features"]),
-
-        "efficientnet_b0": (efficientnet_b0, EfficientNet_B0_Weights.DEFAULT, ["features", 0, 0], ["features"]),
-        "efficientnet_b1": (efficientnet_b1, EfficientNet_B1_Weights.DEFAULT, ["features", 0, 0], ["features"]),
-        "efficientnet_b2": (efficientnet_b2, EfficientNet_B2_Weights.DEFAULT, ["features", 0, 0], ["features"]),
-        "efficientnet_b3": (efficientnet_b3, EfficientNet_B3_Weights.DEFAULT, ["features", 0, 0], ["features"]),
-        "efficientnet_b4": (efficientnet_b4, EfficientNet_B4_Weights.DEFAULT, ["features", 0, 0], ["features"]),
-        "efficientnet_b5": (efficientnet_b5, EfficientNet_B5_Weights.DEFAULT, ["features", 0, 0], ["features"]),
-        "efficientnet_b6": (efficientnet_b6, EfficientNet_B6_Weights.DEFAULT, ["features", 0, 0], ["features"]),
-        "efficientnet_b7": (efficientnet_b7, EfficientNet_B7_Weights.DEFAULT, ["features", 0, 0], ["features"]),
+        "densenet121": (
+            densenet121,
+            DenseNet121_Weights.DEFAULT,
+            ["features", "conv0"],
+            ["features"],
+        ),
+        "densenet161": (
+            densenet161,
+            DenseNet161_Weights.DEFAULT,
+            ["features", "conv0"],
+            ["features"],
+        ),
+        "densenet169": (
+            densenet169,
+            DenseNet169_Weights.DEFAULT,
+            ["features", "conv0"],
+            ["features"],
+        ),
+        "densenet201": (
+            densenet201,
+            DenseNet201_Weights.DEFAULT,
+            ["features", "conv0"],
+            ["features"],
+        ),
+        "efficientnet_b0": (
+            efficientnet_b0,
+            EfficientNet_B0_Weights.DEFAULT,
+            ["features", 0, 0],
+            ["features"],
+        ),
+        "efficientnet_b1": (
+            efficientnet_b1,
+            EfficientNet_B1_Weights.DEFAULT,
+            ["features", 0, 0],
+            ["features"],
+        ),
+        "efficientnet_b2": (
+            efficientnet_b2,
+            EfficientNet_B2_Weights.DEFAULT,
+            ["features", 0, 0],
+            ["features"],
+        ),
+        "efficientnet_b3": (
+            efficientnet_b3,
+            EfficientNet_B3_Weights.DEFAULT,
+            ["features", 0, 0],
+            ["features"],
+        ),
+        "efficientnet_b4": (
+            efficientnet_b4,
+            EfficientNet_B4_Weights.DEFAULT,
+            ["features", 0, 0],
+            ["features"],
+        ),
+        "efficientnet_b5": (
+            efficientnet_b5,
+            EfficientNet_B5_Weights.DEFAULT,
+            ["features", 0, 0],
+            ["features"],
+        ),
+        "efficientnet_b6": (
+            efficientnet_b6,
+            EfficientNet_B6_Weights.DEFAULT,
+            ["features", 0, 0],
+            ["features"],
+        ),
+        "efficientnet_b7": (
+            efficientnet_b7,
+            EfficientNet_B7_Weights.DEFAULT,
+            ["features", 0, 0],
+            ["features"],
+        ),
     }
 
     def __init__(self, name: str, pretrained: bool = True, grayscale: bool = True):
         super().__init__()
 
         if name not in self.CONFIGS:
-            raise ValueError(f"Unsupported backbone: {name}. Choose from {list(self.CONFIGS)}")
+            raise ValueError(
+                f"Unsupported backbone: {name}. Choose from {list(self.CONFIGS)}"
+            )
 
         builder, default_weights, first_conv_path, features_path = self.CONFIGS[name]
 
@@ -150,6 +210,7 @@ class TorchvisionBackbone(nn.Module):
             else:
                 module.train()
 
+
 class LSEPool2d(nn.Module):
     """
     Log-Sum-Exp pooling.
@@ -165,7 +226,8 @@ class LSEPool2d(nn.Module):
         # x: [B, C, H, W]
         x_max = x.amax(dim=(2, 3), keepdim=True)
         pooled = x_max + (1.0 / self.r) * torch.log(
-            torch.mean(torch.exp(self.r * (x - x_max)), dim=(2, 3), keepdim=True) + self.eps
+            torch.mean(torch.exp(self.r * (x - x_max)), dim=(2, 3), keepdim=True)
+            + self.eps
         )
         return pooled.flatten(1)  # [B, C]
 

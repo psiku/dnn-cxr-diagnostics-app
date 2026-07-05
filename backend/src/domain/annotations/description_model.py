@@ -47,7 +47,9 @@ class Description(BaseModel):
             return ""
         return str(value).strip()
 
-    @field_validator("technical_description", "conclusions", "description", mode="before")
+    @field_validator(
+        "technical_description", "conclusions", "description", mode="before"
+    )
     @classmethod
     def normalize_text(cls, value: object) -> str:
         if value is None:

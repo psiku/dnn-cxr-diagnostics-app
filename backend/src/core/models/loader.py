@@ -1,4 +1,5 @@
 """Model and threshold loading utilities."""
+
 import json
 import os
 from collections.abc import Iterable, Mapping

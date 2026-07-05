@@ -1,4 +1,5 @@
 """Paths and limits for on-disk annotation storage."""
+
 import os
 from pathlib import Path
 
