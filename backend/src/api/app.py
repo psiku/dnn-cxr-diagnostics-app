@@ -1,31 +1,44 @@
 """FastAPI application setup."""
+
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+import logging
 
+from src.api.exception_handlers import register_exception_handlers
 from src.api.routes import annotations, health, predictions, pathologies
 from src.core.annotations_config import annotations_data_root
-from src.core.config import load_config
+from src.core.logging_config import configure_logging
+from src.core.config import load_config, validate_runtime_alignment
 from src.core.pathologies import PATHOLOGIES
-from src.core.models import load_model, load_thresholds, ChestXRayPredictor
+from src.core.models import (
+    load_model,
+    load_thresholds,
+    ChestXRayPredictor,
+    load_segmentation_model,
+)
 from src.repositories import DescriptionRepository, LabelingRepository
-from src.services import XRayTriageService
+from src.services import PredictionService, SegmentationService, XRayTriageService
 from src.services.description_pdf import DescriptionPdfBuilder
 from src.services.description_service import DescriptionService
 from src.services.labeling_service import LabelingService
 
 
+logger = logging.getLogger(__name__)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan context manager."""
-    # Startup
+    configure_logging()
+    logger.info("Starting Chest X-Ray Diagnostics API")
     config_path = os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
         "config",
-        "model_config.yml"
+        "model_config.yml",
     )
 
     config = load_config(config_path)
@@ -37,39 +50,86 @@ async def lifespan(app: FastAPI):
         pathologies=list(PATHOLOGIES),
     )
 
-    predictor = ChestXRayPredictor(model, device=device)
-    triage_service = XRayTriageService(predictor, thresholds=thresholds)
+    validate_runtime_alignment(
+        num_classes=config.model_cfg.num_classes,
+        pathologies=PATHOLOGIES,
+        thresholds=thresholds,
+        thresholds_path=config.thresholds_path,
+    )
+    if model.num_classes != config.model_cfg.num_classes:
+        raise ValueError(
+            f"Loaded model has {model.num_classes} output classes, but "
+            f"model_cfg.num_classes is {config.model_cfg.num_classes}."
+        )
+
+    segmentation_service = None
+    if config.segmentation_weights_path:
+        seg_artifacts = load_segmentation_model(
+            config.segmentation_weights_path, device
+        )
+        segmentation_service = SegmentationService(seg_artifacts)
+
+    predictor = ChestXRayPredictor(
+        model,
+        device=device,
+        grayscale=config.model_cfg.grayscale,
+    )
+    prediction_service = PredictionService(
+        predictor,
+        segmentation_service=segmentation_service,
+    )
+    triage_service = XRayTriageService(thresholds=thresholds)
 
     annotations_root: Path = annotations_data_root()
     annotations_root.mkdir(parents=True, exist_ok=True)
     description_repository = DescriptionRepository(annotations_root)
     labeling_repository = LabelingRepository(annotations_root)
-    description_service = DescriptionService(description_repository, DescriptionPdfBuilder())
+    description_service = DescriptionService(
+        description_repository, DescriptionPdfBuilder()
+    )
     labeling_service = LabelingService(labeling_repository)
 
     app.state.model = model
     app.state.predictor = predictor
+    app.state.prediction_service = prediction_service
     app.state.triage_service = triage_service
+    app.state.segmentation_service = segmentation_service
     app.state.device = device
     app.state.description_service = description_service
     app.state.labeling_service = labeling_service
     app.state.annotations_root = annotations_root
 
-    print(f"Model loaded on {device}")
-    if thresholds is not None:
-        print(f"Thresholds loaded from {config.thresholds_path}: {thresholds.tolist()}")
+    logger.info(
+        "Classifier model loaded on %s (grayscale=%s)",
+        device,
+        config.model_cfg.grayscale,
+    )
+    if segmentation_service is not None:
+        logger.info(
+            "Segmentation enabled; weights loaded from %s",
+            config.segmentation_weights_path,
+        )
     else:
-        print(
-            "No thresholds_path configured; "
-            f"using default {XRayTriageService.DEFAULT_THRESHOLD} for all classes"
+        logger.warning(
+            "Segmentation disabled; use_mask requests will return 503 until configured"
+        )
+    if thresholds is not None:
+        logger.info("Thresholds loaded from %s", config.thresholds_path)
+    else:
+        logger.warning(
+            "No thresholds_path configured; using default %.2f for all classes",
+            XRayTriageService.DEFAULT_THRESHOLD,
         )
 
     yield
 
+    logger.info("Shutting down Chest X-Ray Diagnostics API")
     # Cleanup
     app.state.model = None
     app.state.predictor = None
+    app.state.prediction_service = None
     app.state.triage_service = None
+    app.state.segmentation_service = None
     app.state.description_service = None
     app.state.labeling_service = None
 
@@ -80,6 +140,7 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+register_exception_handlers(app)
 
 _default_cors = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8080,http://127.0.0.1:8080"
 _cors_origins = [
@@ -101,11 +162,12 @@ app.include_router(predictions.router)
 app.include_router(annotations.router)
 app.include_router(pathologies.router)
 
+
 @app.get("/")
 async def root():
     """Root endpoint."""
     return {
         "message": "Chest X-Ray Diagnostics API",
         "docs": "/docs",
-        "health": "/health"
+        "health": "/health",
     }
