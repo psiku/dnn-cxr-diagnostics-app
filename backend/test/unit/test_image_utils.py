@@ -1,9 +1,11 @@
+import pytest
 import base64
 from io import BytesIO
 import numpy as np
 from PIL import Image
 from torchvision import transforms
 import torch
+from src.core.exceptions import InvalidImageError
 from src.core.utils.image import (
     decode_base64_to_image,
     encode_image_to_base64,
@@ -52,6 +54,11 @@ def test_decode_base64_to_image_roundtrip():
     assert decoded.convert("RGB").getpixel((0, 0)) == (0, 0, 255)
 
 
+def test_decode_base64_to_image_rejects_invalid_payload():
+    with pytest.raises(InvalidImageError, match="Invalid base64 image payload"):
+        decode_base64_to_image("not-valid-base64-image")
+
+
 def test_enocde_array_to_base64():
     # Setup
     array = np.array([[0, 1, 2], [3, 4, 5], [6, 7, 8]])
@@ -75,18 +82,38 @@ def test_get_image_transform():
     assert any(isinstance(t, transforms.Normalize) for t in transform.transforms)
 
 
-def test_convert_base64_to_tensor():
+def test_convert_base64_to_tensor_rgb():
     # Setup
     image_base64 = _make_base64_image(size=(100, 80))
 
     # Action
-    tensor, original_size = convert_base64_to_tensor(image_base64, torch.device("cpu"))
+    tensor, original_size = convert_base64_to_tensor(
+        image_base64,
+        torch.device("cpu"),
+        grayscale=False,
+    )
 
     # Assert
     assert isinstance(tensor, torch.Tensor)
     assert tensor.shape == (1, 3, 224, 224)
     assert tensor.dtype == torch.float32
     assert tensor.device.type == "cpu"
+    assert original_size == (100, 80)
+
+
+def test_convert_base64_to_tensor_grayscale():
+    # Setup
+    image_base64 = _make_base64_image(size=(100, 80))
+
+    # Action
+    tensor, original_size = convert_base64_to_tensor(
+        image_base64,
+        torch.device("cpu"),
+        grayscale=True,
+    )
+
+    # Assert
+    assert tensor.shape == (1, 1, 224, 224)
     assert original_size == (100, 80)
 
 
@@ -110,11 +137,12 @@ def test_image_suffix_supported():
     assert get_image_suffix("image.webp") == ".webp"
     assert get_image_suffix("image.gif") == ".gif"
 
+
 def test_image_suffix_unsupported():
     assert get_image_suffix("image.bmp") == ".png"
     assert get_image_suffix("image.tiff") == ".png"
     assert get_image_suffix("image") == ".png"
 
+
 def test_image_suffix_none():
     assert get_image_suffix(None) == ".png"
-

@@ -1,58 +1,67 @@
-"""High-level prediction interface."""
+"""Classifier inference — no segmentation orchestration."""
+
+from __future__ import annotations
+
+from typing import Any
+
+import numpy as np
 import torch
 import torch.nn.functional as F
-import numpy as np
-from typing import Any
+
 from src.core.models.classifier import ChestXRayClassifier
 from src.core.utils.image import convert_base64_to_tensor
 
 
 class ChestXRayPredictor:
-    """Wrapper around ChestXRayClassifier for inference."""
+    """Wrapper around ChestXRayClassifier for tensor-level inference."""
 
-    def __init__(self, model: ChestXRayClassifier, device: str = "cpu"):
+    def __init__(
+        self,
+        model: ChestXRayClassifier,
+        device: str = "cpu",
+        *,
+        grayscale: bool = False,
+    ):
         """
         Initialize predictor.
 
         Args:
             model: Loaded ChestXRayClassifier model
             device: Device to run inference on
+            grayscale: Whether the classifier expects a single-channel input
         """
         self.model = model
         self.device = device
+        self.grayscale = grayscale
         self.model.to(device)
         self.model.eval()
 
     @torch.no_grad()
-    def predict(self, image_base64: str, use_mask: bool = False) -> dict[str, Any]:
-        """
-        Run prediction on an image.
+    def predict(self, image_base64: str) -> dict[str, Any]:
+        """Run prediction on a full base64-encoded image."""
+        image_tensor, original_size = convert_base64_to_tensor(
+            image_base64,
+            self.device,
+            grayscale=self.grayscale,
+        )
+        return self.predict_tensor(image_tensor, display_size=original_size)
 
-        Args:
-            image_base64: Base64 encoded image string
-            use_mask: Whether to apply segmentation mask (not yet implemented)
-
-        Returns:
-            Dictionary with predictions, probabilities, and heatmap
-        """
-        if use_mask:
-            raise NotImplementedError("Mask-based prediction not yet implemented")
-
-        # Convert image
-        image_tensor, original_size = convert_base64_to_tensor(image_base64, self.device)
-
-        # Forward pass
+    @torch.no_grad()
+    def predict_tensor(
+        self,
+        image_tensor: torch.Tensor,
+        display_size: tuple[int, int],
+    ) -> dict[str, Any]:
+        """Run prediction on a preprocessed image tensor."""
         output = self.model(image_tensor)
         logits = output["logits"]
         probs = torch.sigmoid(logits).squeeze(0)
         transition_maps = output["transition_maps"]
 
-        # Compute weighted CAM
         weighted_cam = self._compute_weighted_cam(
             transition_maps=transition_maps,
             probs=probs,
-            image_tensor=image_tensor,
-            original_size=original_size,
+            display_size=display_size,
         )
 
         return {
@@ -65,32 +74,17 @@ class ChestXRayPredictor:
         self,
         transition_maps: torch.Tensor,
         probs: torch.Tensor,
-        image_tensor: torch.Tensor,
-        original_size: tuple[int, int],
+        display_size: tuple[int, int],
     ) -> np.ndarray:
-        """
-        Compute weighted Class Activation Map.
-
-        Args:
-            transition_maps: [B, D, h, w] from model
-            probs: [num_classes] sigmoid probabilities
-            image_tensor: [B, 3, H, W] input image
-
-        Returns:
-            [H, W] normalized numpy heatmap
-        """
-        # Weight each channel by its corresponding class probability
         combined_weights = probs @ self.model.prediction.weight  # [D]
 
-        # Compute CAM
         cam = torch.einsum("d,bdhw->bhw", combined_weights, transition_maps)
         cam = F.relu(cam)
         cam = self.model._normalize_map(cam)
 
-        # Resize to input size
         cam = F.interpolate(
             cam.unsqueeze(1),
-            size=original_size,
+            size=display_size,
             mode="bilinear",
             align_corners=False,
         ).squeeze(1)

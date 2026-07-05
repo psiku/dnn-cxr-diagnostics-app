@@ -3,6 +3,7 @@
 The underlying ChestXRayClassifier is mocked, so these tests do not download
 pretrained weights and do not run a real ResNet forward pass.
 """
+
 import base64
 from io import BytesIO
 from unittest.mock import MagicMock, patch
@@ -67,7 +68,6 @@ def _make_base64_image(
     return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
 
-
 def test_init_stores_model_and_device():
     # Setup
     model = _make_mock_model(num_classes=3)
@@ -113,7 +113,6 @@ def test_init_accepts_custom_device():
     # Assert
     assert predictor.device == "cuda:0"
     model.to.assert_called_once_with("cuda:0")
-
 
 
 def test_predict_returns_dict_with_expected_keys():
@@ -198,19 +197,6 @@ def test_predict_runs_a_single_forward_pass():
     assert model.call_count == 1
 
 
-def test_predict_use_mask_true_raises_and_does_not_invoke_model():
-    # Setup
-    model = _make_mock_model(num_classes=3)
-    predictor = ChestXRayPredictor(model)
-    image_base64 = _make_base64_image()
-
-    # Action / Assert
-    with pytest.raises(NotImplementedError, match="Mask"):
-        predictor.predict(image_base64, use_mask=True)
-
-    model.assert_not_called()
-
-
 @patch("src.core.models.predictor.convert_base64_to_tensor")
 def test_predict_forwards_image_and_device_to_converter(mock_convert):
     # Setup
@@ -224,8 +210,11 @@ def test_predict_forwards_image_and_device_to_converter(mock_convert):
     predictor.predict("base64-payload")
 
     # Assert
-    mock_convert.assert_called_once_with("base64-payload", "cpu")
-
+    mock_convert.assert_called_once_with(
+        "base64-payload",
+        "cpu",
+        grayscale=False,
+    )
 
 
 def test_compute_weighted_cam_shape_matches_original_size():
@@ -236,8 +225,7 @@ def test_compute_weighted_cam_shape_matches_original_size():
     cam = predictor._compute_weighted_cam(
         transition_maps=torch.ones(1, 4, 7, 7),
         probs=torch.tensor([0.1, 0.2, 0.3]),
-        image_tensor=torch.zeros(1, 3, 224, 224),
-        original_size=(50, 60),
+        display_size=(50, 60),
     )
 
     # Assert
@@ -256,8 +244,7 @@ def test_compute_weighted_cam_calls_model_normalize_map():
     predictor._compute_weighted_cam(
         transition_maps=torch.ones(1, 4, 7, 7),
         probs=torch.tensor([0.1, 0.2, 0.3]),
-        image_tensor=torch.zeros(1, 3, 224, 224),
-        original_size=(32, 32),
+        display_size=(32, 32),
     )
 
     # Assert
@@ -273,8 +260,7 @@ def test_compute_weighted_cam_is_nonnegative_after_relu():
     cam = predictor._compute_weighted_cam(
         transition_maps=torch.randn(1, 4, 7, 7),
         probs=torch.tensor([-1.0, -1.0, -1.0]),
-        image_tensor=torch.zeros(1, 3, 224, 224),
-        original_size=(32, 32),
+        display_size=(32, 32),
     )
 
     # Assert
@@ -290,8 +276,7 @@ def test_compute_weighted_cam_zero_probs_yields_zero_cam():
     cam = predictor._compute_weighted_cam(
         transition_maps=torch.ones(1, 4, 7, 7),
         probs=torch.zeros(3),
-        image_tensor=torch.zeros(1, 3, 224, 224),
-        original_size=(32, 32),
+        display_size=(32, 32),
     )
 
     # Assert

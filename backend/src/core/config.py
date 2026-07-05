@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import numpy as np
 import yaml
 from pydantic import BaseModel
 
@@ -22,6 +23,7 @@ class Config(BaseModel):
     model_path: str
     model_cfg: ModelConfig
     thresholds_path: str | None = None
+    segmentation_weights_path: str | None = None
 
 
 def load_config(config_path: str) -> Config:
@@ -33,7 +35,7 @@ def load_config(config_path: str) -> Config:
     with open(config_file, encoding="utf-8") as f:
         config_dict = yaml.safe_load(f)
 
-    for key in ("model_path", "thresholds_path"):
+    for key in ("model_path", "thresholds_path", "segmentation_weights_path"):
         raw = config_dict.get(key)
         if not raw:
             continue
@@ -42,3 +44,36 @@ def load_config(config_path: str) -> Config:
             config_dict[key] = str((backend_root / path).resolve())
 
     return Config(**config_dict)
+
+
+def validate_runtime_alignment(
+    *,
+    num_classes: int,
+    pathologies: tuple[str, ...] | list[str],
+    thresholds: np.ndarray | None,
+    thresholds_path: str | None = None,
+) -> None:
+    """
+    Ensure model class count, pathology labels, and optional thresholds agree.
+
+    Raises:
+        ValueError: On mismatch, with a message pointing at the config sources.
+    """
+    pathology_count = len(pathologies)
+    if num_classes != pathology_count:
+        raise ValueError(
+            f"model_cfg.num_classes is {num_classes}, but pathologies.json "
+            f"defines {pathology_count} classes. Update model_config.yml or "
+            "config/pathologies.json so they match."
+        )
+
+    if thresholds is None:
+        return
+
+    threshold_count = int(np.asarray(thresholds).reshape(-1).shape[0])
+    if threshold_count != pathology_count:
+        source = thresholds_path or "thresholds file"
+        raise ValueError(
+            f"{source} provides {threshold_count} thresholds, but "
+            f"pathologies.json defines {pathology_count} classes."
+        )
