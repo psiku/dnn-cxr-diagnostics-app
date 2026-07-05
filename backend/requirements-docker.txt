@@ -7,3 +7,5 @@ matplotlib
 opencv-python-headless
 fpdf2
 Pillow
+torch-geometric
+httpx2
