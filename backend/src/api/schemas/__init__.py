@@ -1,6 +1,8 @@
 """API schemas."""
+
 from src.api.schemas.requests import ImageRequest
 from src.api.schemas.responses import (
+    HealthResponse,
     PathologiesResponse,
     PathologyPrediction,
     PredictionResponse,
@@ -8,6 +10,7 @@ from src.api.schemas.responses import (
 )
 
 __all__ = [
+    "HealthResponse",
     "ImageRequest",
     "PathologiesResponse",
     "PathologyPrediction",
