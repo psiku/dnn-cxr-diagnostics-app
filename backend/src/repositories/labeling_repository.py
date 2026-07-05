@@ -1,24 +1,14 @@
 """Persist labeled images: image file + meta.json (LabelingManifest)."""
+
 from __future__ import annotations
 
 import json
 import uuid
 from pathlib import Path
 
-from pydantic import BaseModel, Field
-
+from src.domain.annotations.labeling_manifest import LabelingManifest
 from src.domain.annotations.labeling_model import LabeledImage
 from src.core.utils.image import get_image_suffix
-
-
-class LabelingManifest(BaseModel):
-    """On-disk shape for meta.json (labeled image fields + attachment filenames)."""
-
-    labeled: LabeledImage = Field(..., description="Bounding boxes and metadata.")
-    attachment_filenames: dict[str, str] = Field(
-        default_factory=dict,
-        description="Logical role name -> filename within the label folder.",
-    )
 
 
 class LabelingRepository:
@@ -95,5 +85,7 @@ def _manifest_from_legacy(legacy_path: Path) -> LabelingManifest:
     storage = raw.pop("_storage", None) or {}
     image_file = storage.get("image_file", "")
     labeled = LabeledImage.model_validate(raw)
-    attachment_filenames = {LabelingRepository.IMAGE_ROLE: image_file} if image_file else {}
+    attachment_filenames = (
+        {LabelingRepository.IMAGE_ROLE: image_file} if image_file else {}
+    )
     return LabelingManifest(labeled=labeled, attachment_filenames=attachment_filenames)

@@ -1,24 +1,14 @@
 """Persist clinical descriptions and optional image attachments as JSON + files."""
+
 from __future__ import annotations
 
 import json
 import uuid
 from pathlib import Path
 
-from pydantic import BaseModel, Field
-
+from src.domain.annotations.description_manifest import DescriptionManifest
 from src.domain.annotations.description_model import Description
 from src.core.utils.image import get_image_suffix
-
-
-class DescriptionManifest(BaseModel):
-    """On-disk shape for meta.json (description fields + attachment filenames)."""
-
-    description: Description = Field(..., description="Clinical text and ids.")
-    attachment_filenames: dict[str, str] = Field(
-        default_factory=dict,
-        description="Logical role name -> filename within the description folder.",
-    )
 
 
 class DescriptionRepository:

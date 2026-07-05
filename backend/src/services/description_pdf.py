@@ -1,4 +1,5 @@
 """Render a clinical description and optional images into a PDF (fpdf2)."""
+
 from __future__ import annotations
 
 import inspect
@@ -11,8 +12,8 @@ from pathlib import Path
 from fpdf import FPDF
 from PIL import Image
 
+from src.domain.annotations.description_manifest import DescriptionManifest
 from src.domain.annotations.description_model import Description
-from src.repositories.description_repository import DescriptionManifest
 
 PdfFiguresMode = Literal["none", "original", "composite", "both"]
 
