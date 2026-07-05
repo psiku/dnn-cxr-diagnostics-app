@@ -1,68 +1,75 @@
 """Prediction endpoints."""
-from fastapi import APIRouter, status
 
-from src.api.dependencies import PredictorDep, TriageServiceDep
-from src.api.schemas import ImageRequest, PredictionResponse, PathologyPrediction, TriageResponse
-from src.core.pathologies import PATHOLOGIES
-from src.core.utils.image import encode_array_to_base64
+import logging
+import time
+
+from fastapi import APIRouter, Query, status
+
+from src.api.dependencies import PredictionServiceDep, TriageServiceDep
+from src.api.schemas import ImageRequest, PredictionResponse, TriageResponse
+from src.services.prediction_format import build_triage_result
 
 router = APIRouter(tags=["Predictions"])
+logger = logging.getLogger(__name__)
+
+USE_MASK_QUERY = Query(
+    False,
+    description=(
+        "When true, segment the thoracic region before prediction and map the "
+        "heatmap back to the full original image."
+    ),
+)
 
 
-def _build_predictions_and_heatmap(probs, weighted_cam):
-    predictions = [
-        PathologyPrediction(pathology=PATHOLOGIES[i], probability=float(probs[i]))
-        for i in range(len(probs))
-    ]
-    base_64_heatmap = encode_array_to_base64(weighted_cam)
-    return predictions, base_64_heatmap
-
-
-def _build_prediction_models(items):
-    return [PathologyPrediction(**item) for item in items]
-
-
-@router.post("/predict", status_code=status.HTTP_200_OK, response_model=PredictionResponse)
-async def predict(request: ImageRequest, predictor: PredictorDep, use_mask: bool = False):
+@router.post(
+    "/predict", status_code=status.HTTP_200_OK, response_model=PredictionResponse
+)
+async def predict(
+    request: ImageRequest,
+    prediction_service: PredictionServiceDep,
+    use_mask: bool = USE_MASK_QUERY,
+):
     """
     Run prediction on an X-ray image.
-
-    Args:
-        request: ImageRequest with base64-encoded image
-        use_mask: Whether to use segmentation mask (not yet supported)
 
     Returns:
         PredictionResponse with predictions and heatmap
     """
-    result = predictor.predict(request.base_64_image, use_mask=use_mask)
-    predictions, base_64_heatmap = _build_predictions_and_heatmap(
-        result["probs"],
-        result["weighted_cam"],
+    started = time.perf_counter()
+    result = prediction_service.predict_for_api(
+        request.base_64_image, use_mask=use_mask
     )
-
-    return PredictionResponse(
-        predictions=predictions,
-        base_64_heatmap=base_64_heatmap
-    )
+    elapsed_ms = (time.perf_counter() - started) * 1000
+    logger.info("POST /predict completed in %.1f ms (use_mask=%s)", elapsed_ms, use_mask)
+    return PredictionResponse(**result)
 
 
 @router.post("/triage", status_code=status.HTTP_200_OK, response_model=TriageResponse)
-async def triage(request: ImageRequest, triage_service: TriageServiceDep):
+async def triage(
+    request: ImageRequest,
+    prediction_service: PredictionServiceDep,
+    triage_service: TriageServiceDep,
+    use_mask: bool = USE_MASK_QUERY,
+):
     """
     Run prediction and triage assessment on an X-ray image.
 
     Returns:
         TriageResponse with predictions, triage level, and high-risk findings
     """
-    result = triage_service.predict_and_triage(request.base_64_image)
-
-    predictions = _build_prediction_models(result["predictions"])
-    high_risk_findings = _build_prediction_models(result["high_risk_findings"])
-    base_64_heatmap = encode_array_to_base64(result["weighted_cam"])
-
-    return TriageResponse(
-        predictions=predictions,
-        base_64_heatmap=base_64_heatmap,
-        triage_level=result["triage_level"],
-        high_risk_findings=high_risk_findings,
+    started = time.perf_counter()
+    prediction = prediction_service.predict(request.base_64_image, use_mask=use_mask)
+    triage_assessment = triage_service.assess(prediction.probs)
+    result = build_triage_result(
+        prediction.probs,
+        prediction.weighted_cam,
+        triage_assessment,
     )
+    elapsed_ms = (time.perf_counter() - started) * 1000
+    logger.info(
+        "POST /triage completed in %.1f ms (use_mask=%s, triage_level=%s)",
+        elapsed_ms,
+        use_mask,
+        triage_assessment.triage_level,
+    )
+    return TriageResponse(**result)
