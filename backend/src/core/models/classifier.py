@@ -132,13 +132,21 @@ class TorchvisionBackbone(nn.Module):
         ),
     }
 
-    def __init__(self, name: str, pretrained: bool = True, grayscale: bool = True):
+    def __init__(
+        self,
+        name: str,
+        pretrained: bool = True,
+        grayscale: bool = True,
+        use_mask_channel: bool = False,
+    ):
         super().__init__()
 
         if name not in self.CONFIGS:
             raise ValueError(
                 f"Unsupported backbone: {name}. Choose from {list(self.CONFIGS)}"
             )
+
+        self.use_mask_channel = use_mask_channel
 
         builder, default_weights, first_conv_path, features_path = self.CONFIGS[name]
 
@@ -147,6 +155,11 @@ class TorchvisionBackbone(nn.Module):
 
         if grayscale:
             self._convert_first_conv_to_grayscale(model, first_conv_path)
+
+        if use_mask_channel:
+            self._expand_first_conv_input_channels(
+                model, first_conv_path, extra_channels=1
+            )
 
         if name.startswith("resnet"):
             self.features = nn.Sequential(
@@ -177,6 +190,33 @@ class TorchvisionBackbone(nn.Module):
         with torch.no_grad():
             new_conv.weight.copy_(old_conv.weight.mean(dim=1, keepdim=True))
 
+            if old_conv.bias is not None:
+                new_conv.bias.copy_(old_conv.bias)
+
+        set_nested_attr(model, conv_path, new_conv)
+
+    def _expand_first_conv_input_channels(
+        self, model, conv_path, extra_channels: int = 1
+    ) -> None:
+        """Widen the first conv to accept extra input channels (e.g. organ mask)."""
+        old_conv = get_nested_attr(model, conv_path)
+        new_in = old_conv.in_channels + extra_channels
+
+        new_conv = nn.Conv2d(
+            in_channels=new_in,
+            out_channels=old_conv.out_channels,
+            kernel_size=old_conv.kernel_size,
+            stride=old_conv.stride,
+            padding=old_conv.padding,
+            bias=old_conv.bias is not None,
+        )
+
+        with torch.no_grad():
+            new_conv.weight[:, : old_conv.in_channels].copy_(old_conv.weight)
+            mean_w = old_conv.weight.mean(dim=1, keepdim=True)
+            new_conv.weight[:, old_conv.in_channels :].copy_(
+                mean_w.expand(-1, extra_channels, -1, -1)
+            )
             if old_conv.bias is not None:
                 new_conv.bias.copy_(old_conv.bias)
 
@@ -243,6 +283,7 @@ class ChestXRayClassifier(nn.Module):
         backbone_name: str = "resnet50",
         pretrained: bool = True,
         grayscale: bool = True,
+        use_mask_channel: bool = False,
         backbone_trainable_layers: list[str] | None = None,
         in_features: int | None = None,
         transition_dim: int = 2048,
@@ -262,17 +303,20 @@ class ChestXRayClassifier(nn.Module):
         self.num_classes = num_classes
         self.pooling = pooling
         self.use_transition = use_transition
+        self.use_mask_channel = use_mask_channel
+        self.image_channels = 1 if grayscale else 3
 
         self.backbone = TorchvisionBackbone(
             name=backbone_name,
             pretrained=pretrained,
             grayscale=grayscale,
+            use_mask_channel=use_mask_channel,
         )
 
         self.backbone.set_trainable_layers(backbone_trainable_layers)
 
         if in_features is None:
-            in_features = self._infer_backbone_channels(grayscale)
+            in_features = self._infer_backbone_channels()
 
         if use_transition:
             self.transition = nn.Sequential(
@@ -297,12 +341,15 @@ class ChestXRayClassifier(nn.Module):
         self.dropout = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
         self.prediction = nn.Linear(classifier_dim, num_classes)
 
-    def _infer_backbone_channels(self, grayscale: bool) -> int:
+    @property
+    def input_channels(self) -> int:
+        return self.image_channels + (1 if self.use_mask_channel else 0)
+
+    def _infer_backbone_channels(self) -> int:
         device = next(self.backbone.parameters()).device
-        channels = 1 if grayscale else 3
 
         with torch.no_grad():
-            dummy = torch.zeros(1, channels, 224, 224, device=device)
+            dummy = torch.zeros(1, self.input_channels, 224, 224, device=device)
             out = self.backbone(dummy)
 
         return out.shape[1]
@@ -322,6 +369,14 @@ class ChestXRayClassifier(nn.Module):
         return cam
 
     def forward(self, image: torch.Tensor, retain_transition_grad: bool = False):
+        if image.shape[1] != self.input_channels:
+            raise ValueError(
+                f"Expected {self.input_channels} input channels "
+                f"(grayscale={self.image_channels == 1}, "
+                f"use_mask_channel={self.use_mask_channel}), "
+                f"got {image.shape[1]}."
+            )
+
         conv_maps = self.backbone(image)
         transition_maps = self.transition(conv_maps)
 

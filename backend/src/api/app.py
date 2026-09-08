@@ -12,7 +12,7 @@ from src.api.exception_handlers import register_exception_handlers
 from src.api.routes import annotations, health, predictions, pathologies
 from src.core.annotations_config import annotations_data_root
 from src.core.logging_config import configure_logging
-from src.core.config import load_config, validate_runtime_alignment
+from src.core.config import load_config, validate_mask_flags, validate_runtime_alignment
 from src.core.pathologies import PATHOLOGIES
 from src.core.models import (
     load_model,
@@ -42,6 +42,7 @@ async def lifespan(app: FastAPI):
     )
 
     config = load_config(config_path)
+    validate_mask_flags(config)
     device = "cuda" if os.environ.get("USE_CUDA", "false").lower() == "true" else "cpu"
 
     model = load_model(config, device=device)
@@ -77,6 +78,8 @@ async def lifespan(app: FastAPI):
     prediction_service = PredictionService(
         predictor,
         segmentation_service=segmentation_service,
+        use_mask=config.use_mask,
+        use_mask_channel=config.model_cfg.use_mask_channel,
     )
     triage_service = XRayTriageService(thresholds=thresholds)
 
@@ -100,18 +103,21 @@ async def lifespan(app: FastAPI):
     app.state.annotations_root = annotations_root
 
     logger.info(
-        "Classifier model loaded on %s (grayscale=%s)",
+        "Classifier model loaded on %s (grayscale=%s, use_mask_channel=%s)",
         device,
         config.model_cfg.grayscale,
+        config.model_cfg.use_mask_channel,
     )
     if segmentation_service is not None:
         logger.info(
-            "Segmentation enabled; weights loaded from %s",
+            "Segmentation enabled; weights loaded from %s (use_mask=%s)",
             config.segmentation_weights_path,
+            config.use_mask,
         )
     else:
         logger.warning(
-            "Segmentation disabled; use_mask requests will return 503 until configured"
+            "Segmentation disabled; set use_mask=true and segmentation_weights_path "
+            "in config to enable the thoracic crop path"
         )
     if thresholds is not None:
         logger.info("Thresholds loaded from %s", config.thresholds_path)

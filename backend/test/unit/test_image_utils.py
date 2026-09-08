@@ -13,6 +13,7 @@ from src.core.utils.image import (
     get_image_suffix,
     get_image_transform,
     convert_base64_to_tensor,
+    convert_crop_and_mask_to_tensor,
     resize_to_original_size,
 )
 
@@ -115,6 +116,25 @@ def test_convert_base64_to_tensor_grayscale():
     # Assert
     assert tensor.shape == (1, 1, 224, 224)
     assert original_size == (100, 80)
+
+
+def test_convert_crop_and_mask_to_tensor_stacks_mask_channel():
+    gray = np.full((40, 50), 128, dtype=np.uint8)
+    mask = np.zeros((40, 50), dtype=np.uint8)
+    mask[5:30, 5:40] = 255
+
+    tensor, crop_size = convert_crop_and_mask_to_tensor(
+        gray,
+        mask,
+        torch.device("cpu"),
+        grayscale=False,
+    )
+
+    assert tensor.shape == (1, 4, 224, 224)
+    assert crop_size == (50, 40)
+    assert float(tensor[0, 3].min()) >= 0.0
+    assert float(tensor[0, 3].max()) <= 1.0
+    assert float(tensor[0, 3].max()) > 0.0
 
 
 def test_resize_to_original_size():

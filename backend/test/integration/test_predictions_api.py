@@ -29,7 +29,10 @@ def _make_base64_image() -> str:
 
 @pytest.fixture
 def mock_prediction_service():
-    return MagicMock()
+    service = MagicMock()
+    service.use_mask = False
+    service.use_mask_channel = False
+    return service
 
 
 @pytest.fixture
@@ -69,7 +72,6 @@ def test_predict_returns_503_when_segmentation_not_configured(
     response = client.post(
         "/predict",
         json={"base_64_image": _make_base64_image()},
-        params={"use_mask": True},
     )
 
     assert response.status_code == 503
@@ -84,7 +86,6 @@ def test_predict_returns_400_for_empty_segmentation_mask(client, mock_prediction
     response = client.post(
         "/predict",
         json={"base_64_image": _make_base64_image()},
-        params={"use_mask": True},
     )
 
     assert response.status_code == 400

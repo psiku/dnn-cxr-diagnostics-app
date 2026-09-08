@@ -115,6 +115,42 @@ def convert_array_to_tensor(
     return image_tensor.to(device), crop_size
 
 
+def convert_crop_and_mask_to_tensor(
+    gray_array: np.ndarray,
+    mask_array: np.ndarray,
+    device: torch.device,
+    size: int = 224,
+    grayscale: bool = False,
+) -> tuple[torch.Tensor, tuple[int, int]]:
+    """
+    Build a model input by stacking a preprocessed image crop with a mask channel.
+
+    Image channels are ImageNet-normalized; the mask channel is resized to
+    ``size`` and kept in ``[0, 1]`` without ImageNet normalization.
+    """
+    import cv2
+
+    image_tensor, crop_size = convert_array_to_tensor(
+        gray_array,
+        device=device,
+        size=size,
+        grayscale=grayscale,
+    )
+
+    mask = np.asarray(mask_array, dtype=np.float32)
+    if mask.max() > 1.0:
+        mask = mask / 255.0
+    mask = np.clip(mask, 0.0, 1.0)
+    mask_resized = cv2.resize(mask, (size, size), interpolation=cv2.INTER_NEAREST)
+    mask_tensor = (
+        torch.from_numpy(mask_resized)
+        .unsqueeze(0)
+        .unsqueeze(0)
+        .to(device=device, dtype=image_tensor.dtype)
+    )
+    return torch.cat([image_tensor, mask_tensor], dim=1), crop_size
+
+
 def paste_cam_to_full_image(
     cam_crop: np.ndarray,
     *,

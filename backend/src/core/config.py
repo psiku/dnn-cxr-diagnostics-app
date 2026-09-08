@@ -17,6 +17,7 @@ class ModelConfig(BaseModel):
     pooling: str
     lse_r: float
     dropout: float
+    use_mask_channel: bool = False
 
 
 class Config(BaseModel):
@@ -24,6 +25,7 @@ class Config(BaseModel):
     model_cfg: ModelConfig
     thresholds_path: str | None = None
     segmentation_weights_path: str | None = None
+    use_mask: bool = False
 
 
 def load_config(config_path: str) -> Config:
@@ -44,6 +46,28 @@ def load_config(config_path: str) -> Config:
             config_dict[key] = str((backend_root / path).resolve())
 
     return Config(**config_dict)
+
+
+def validate_mask_flags(config: Config) -> None:
+    """
+    Ensure deploy-time mask flags are consistent with segmentation and model config.
+
+    Raises:
+        ValueError: On incompatible flag combinations.
+    """
+    use_mask_channel = config.model_cfg.use_mask_channel
+
+    if use_mask_channel and not config.use_mask:
+        raise ValueError(
+            "model_cfg.use_mask_channel=true requires use_mask=true so that "
+            "segmentation can produce the extra input channel."
+        )
+
+    if (config.use_mask or use_mask_channel) and not config.segmentation_weights_path:
+        raise ValueError(
+            "use_mask / use_mask_channel requires segmentation_weights_path "
+            "in model_config.yml."
+        )
 
 
 def validate_runtime_alignment(

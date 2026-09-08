@@ -41,8 +41,6 @@ export default function HomePage() {
   const [error, setError] = useState("");
   const [alpha, setAlpha] = useState(0.35);
   const [dragOver, setDragOver] = useState(false);
-  const [useMask, setUseMask] = useState(false);
-  const [appliedMask, setAppliedMask] = useState(false);
 
   const heatmapDataUrl = useMemo(
     () => (heatmapBase64 ? `data:image/png;base64,${heatmapBase64}` : ""),
@@ -59,7 +57,7 @@ export default function HomePage() {
     [highRiskFindings]
   );
 
-  async function runPredictionForImage(dataUrl, maskEnabled = useMask) {
+  async function runPredictionForImage(dataUrl) {
     setLoading(true);
     setError("");
 
@@ -68,8 +66,6 @@ export default function HomePage() {
 
       const { data } = await axios.post(TRIAGE_URL, {
         base_64_image: base64,
-      }, {
-        params: { use_mask: maskEnabled },
       });
 
       setPredictions(data.predictions || []);
@@ -78,18 +74,10 @@ export default function HomePage() {
       const hm = data.base_64_heatmap || "";
       setHeatmapBase64(hm);
       setExamHeatmap(hm);
-      setAppliedMask(maskEnabled);
     } catch (e) {
       setError(e?.response?.data?.detail || e.message || "Prediction failed");
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function handleUseMaskChange(checked) {
-    setUseMask(checked);
-    if (originalDataUrl && !loading) {
-      await runPredictionForImage(originalDataUrl, checked);
     }
   }
 
@@ -101,7 +89,6 @@ export default function HomePage() {
     setPredictions([]);
     setTriageLevel("");
     setHighRiskFindings([]);
-    setAppliedMask(false);
 
     const dataUrl = await fileToDataUrl(selected);
     setOriginalDataUrl(dataUrl);
@@ -150,34 +137,6 @@ export default function HomePage() {
             Add Label
           </Link>
         </div>
-      </section>
-
-      <section className="card analysis-options-card" aria-label="Analysis options">
-        <h2 className="analysis-options-title">Segmentation</h2>
-        <label className="checkbox-row analysis-checkbox">
-          <input
-            type="checkbox"
-            checked={useMask}
-            onChange={(e) => handleUseMaskChange(e.target.checked)}
-            disabled={loading}
-          />
-          <span>
-            <strong>Use thoracic mask</strong>
-            <span className="analysis-options-hint">
-              {" "}
-              Segment lungs and heart, predict on the cropped region, and map the heatmap back
-              onto the full image.
-            </span>
-          </span>
-        </label>
-        {originalDataUrl && !loading && heatmapBase64 && (
-          <p className="analysis-mode-note">
-            Current results:{" "}
-            <span className={`mode-badge mode-badge--${appliedMask ? "on" : "off"}`}>
-              {appliedMask ? "with segmentation" : "full image"}
-            </span>
-          </p>
-        )}
       </section>
 
       <section className="previews card" aria-label="Preview">
@@ -230,9 +189,7 @@ export default function HomePage() {
 
         <div className="preview-pane">
           <div className="preview-pane-head">
-            <h2 className="preview-card-title">
-              With heatmap{appliedMask ? " (segmented)" : ""}
-            </h2>
+            <h2 className="preview-card-title">With heatmap</h2>
           </div>
           <div className="preview-frame overlay-wrap">
             {originalDataUrl && heatmapDataUrl ? (

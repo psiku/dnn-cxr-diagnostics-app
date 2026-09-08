@@ -71,6 +71,33 @@ def test_load_model(tmp_path):
     assert model is not None
     assert isinstance(model, ChestXRayClassifier)
     assert not model.training
+    assert model.use_mask_channel is False
+    assert model.input_channels == 1
+
+
+def test_classifier_use_mask_channel_accepts_four_channel_rgb_input():
+    model = ChestXRayClassifier(
+        num_classes=3,
+        backbone_name="resnet18",
+        pretrained=False,
+        grayscale=False,
+        use_mask_channel=True,
+        backbone_trainable_layers=[],
+        in_features=512,
+        transition_dim=64,
+        use_transition=True,
+        pooling="avg",
+        lse_r=5.0,
+        dropout=0.0,
+    )
+    model.eval()
+
+    assert model.input_channels == 4
+    out = model(torch.zeros(1, 4, 224, 224))
+    assert out["logits"].shape == (1, 3)
+
+    with pytest.raises(ValueError, match="Expected 4 input channels"):
+        model(torch.zeros(1, 3, 224, 224))
 
 
 @pytest.mark.parametrize(

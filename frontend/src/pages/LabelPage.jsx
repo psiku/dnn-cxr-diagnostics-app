@@ -274,16 +274,20 @@ function LabelAnnotatorBody({
         </div>
 
         <div className="field-row">
-          <label className="field-label" htmlFor="label-image">
+          <span className="field-label" id="label-image-heading">
             Study image (override)
+          </span>
+          <label className="file-pick">
+            <span>Select image</span>
+            <input
+              id="label-image"
+              type="file"
+              accept="image/*"
+              className="visually-hidden"
+              onChange={handleFileChange}
+              aria-labelledby="label-image-heading"
+            />
           </label>
-          <input
-            id="label-image"
-            type="file"
-            accept="image/*"
-            className="field-file"
-            onChange={handleFileChange}
-          />
         </div>
 
         {imageId && (
