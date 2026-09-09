@@ -1,0 +1,18 @@
+use_mask: true
+model_path: models/app/model.ckpt
+model_cfg:
+  num_classes: 14
+  backbone_name: resnet101
+  pretrained: true
+  grayscale: false
+  use_mask_channel: false
+  backbone_trainable_layers: []
+  in_features: null
+  transition_dim: 2048
+  use_transition: true
+  pooling: lse
+  lse_r: 10.0
+  dropout: 0.1
+
+thresholds_path: config/thresholds.json
+segmentation_weights_path: models/segmentation_model_bestMSE.pt

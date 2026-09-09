@@ -1,0 +1,18 @@
+use_mask: false
+model_path: models/app/model.ckpt
+model_cfg:
+  num_classes: 14
+  backbone_name: efficientnet_b2
+  pretrained: false
+  grayscale: false
+  use_mask_channel: false
+  backbone_trainable_layers: []
+  in_features: null
+  transition_dim: 1280
+  use_transition: true
+  pooling: lse
+  lse_r: 10.0
+  dropout: 0.1
+
+thresholds_path: config/thresholds.json
+segmentation_weights_path: models/segmentation_model_bestMSE.pt
