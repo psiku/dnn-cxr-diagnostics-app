@@ -8,7 +8,7 @@ model_cfg:
   use_mask_channel: false
   backbone_trainable_layers: []
   in_features: null
-  transition_dim: 1408
+  transition_dim: 1280
   use_transition: true
   pooling: lse
   lse_r: 10.0
